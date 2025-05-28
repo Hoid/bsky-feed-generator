@@ -1,0 +1,12 @@
+[project]
+name = ""
+version = "0.0.1"
+dependencies = [
+    "atproto==0.0.59",
+    "peewee~=3.16.2",
+    "flask~=2.3.2",
+    "python-dotenv~=1.0.0",
+]
+
+[tool.uv]
+package = false

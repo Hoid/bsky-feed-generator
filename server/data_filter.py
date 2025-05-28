@@ -14,12 +14,12 @@ def is_archive_post(record: 'models.AppBskyFeedPost.Record') -> bool:
     # old posts. Unfortunately, the only way to test for this is to look an old
     # created_at date. However, there are other reasons why a post might have an old
     # date, such as firehose or firehose consumer outages. It is up to you, the feed
-    # creator to weigh the pros and cons, amd and optionally include this function in
+    # creator to weigh the pros and cons, and optionally include this function in
     # your filter conditions, and adjust the threshold to your liking.
     #
     # See https://github.com/MarshalX/bluesky-feed-generator/pull/21
 
-    archived_threshold = datetime.timedelta(days=1)
+    archived_threshold = datetime.timedelta(days=7)
     created_at = datetime.datetime.fromisoformat(record.created_at)
     now = datetime.datetime.now(datetime.UTC)
 

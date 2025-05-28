@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 import peewee
 
@@ -15,7 +15,7 @@ class Post(BaseModel):
     cid = peewee.CharField()
     reply_parent = peewee.CharField(null=True, default=None)
     reply_root = peewee.CharField(null=True, default=None)
-    indexed_at = peewee.DateTimeField(default=datetime.utcnow)
+    indexed_at = peewee.DateTimeField(default=datetime.now(timezone.utc))
 
 
 class SubscriptionState(BaseModel):
