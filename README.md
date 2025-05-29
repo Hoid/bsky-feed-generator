@@ -26,12 +26,15 @@ After successfully running the script, you should be able to see your feed from 
 
 ## Running the Server
 
-Install Python 3.7+.
+Install [uv](https://github.com/astral-sh/uv).
 
-Run `setupvenv.sh` to setup a virtual environment and install the dependencies:
+Run the following to install python, create a virtual environment with uv, and install dependencies:
 
 ```shell
-./setupvenv.sh
+uv python install 3.12
+uv python pin 3.12
+uv venv --python 3.12
+uv sync
 ```
 
 **Note**: To get value for `FEED_URI` you need to publish the feed first
@@ -45,7 +48,7 @@ flask run
 **Warning** The Flask development server is not designed for production use. In production, you should use production WSGI server such as [`waitress`](https://flask.palletsprojects.com/en/stable/deploying/waitress/) behind a reverse proxy such as NGINX instead.
 
 ```shell
-pip install waitress
+uv add waitress
 waitress-serve --listen=127.0.0.1:8080 server.app:app
 ```
 
