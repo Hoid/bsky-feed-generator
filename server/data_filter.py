@@ -53,8 +53,8 @@ def operations_callback(ops: defaultdict) -> None:
         author = created_post['author']
         record = created_post['record']
 
-        post_with_images = isinstance(record.embed, models.AppBskyEmbedImages.Main)
-        post_with_video = isinstance(record.embed, models.AppBskyEmbedVideo.Main)
+        is_post_with_images = isinstance(record.embed, models.AppBskyEmbedImages.Main)
+        is_post_with_video = isinstance(record.embed, models.AppBskyEmbedVideo.Main)
         inlined_text = record.text.replace('\n', ' ')
 
         # print all texts just as demo that data stream works
@@ -62,8 +62,8 @@ def operations_callback(ops: defaultdict) -> None:
             f'NEW POST '
             f'[CREATED_AT={record.created_at}]'
             f'[AUTHOR={author}]'
-            f'[WITH_IMAGE={post_with_images}]'
-            f'[WITH_VIDEO={post_with_video}]'
+            f'[WITH_IMAGE={is_post_with_images}]'
+            f'[WITH_VIDEO={is_post_with_video}]'
             f': {inlined_text}'
         )
 
