@@ -1,35 +1,60 @@
 import logging
 from collections import defaultdict
 
-from atproto import AtUri, CAR, firehose_models, FirehoseSubscribeReposClient, models, parse_subscribe_repos_message
+from atproto import (
+    CAR,
+    AtUri,
+    FirehoseSubscribeReposClient,
+    firehose_models,
+    models,
+    parse_subscribe_repos_message,
+)
 from atproto.exceptions import FirehoseError
 
-from server.database import SubscriptionState
+from server import RELEVANT_RECORDS
+from server.database import FirehoseSubscriptionState
 from server.logger import logger
-
-_INTERESTED_RECORDS = {
-    models.AppBskyFeedLike: models.ids.AppBskyFeedLike,
-    models.AppBskyFeedPost: models.ids.AppBskyFeedPost,
-    models.AppBskyGraphFollow: models.ids.AppBskyGraphFollow,
-}
 
 
 def _get_ops_by_type(commit: models.ComAtprotoSyncSubscribeRepos.Commit) -> defaultdict:
-    operation_by_type = defaultdict(lambda: {'created': [], 'deleted': []})
+    """
+    Returns a dictionary of operations by type.
+
+    The keys are the record types, and the values are dictionaries with two keys:
+    - 'created': a list of dictionaries with the following keys:
+        - 'record': the record
+        - 'uri': the URI of the record
+        - 'cid': the CID of the record
+        - 'author': the author of the record
+    - 'deleted': a list of dictionaries with the following keys:
+        - 'uri': the URI of the record
+
+    Args:
+        commit: The commit object.
+
+    Returns:
+        A dictionary of operations by type.
+    """
+
+    operation_by_type = defaultdict(lambda: {"created": [], "deleted": []})
 
     car = CAR.from_bytes(commit.blocks)
     for op in commit.ops:
-        if op.action == 'update':
+        if op.action == "update":
             # we are not interested in updates
             continue
 
-        uri = AtUri.from_str(f'at://{commit.repo}/{op.path}')
+        at_uri = AtUri.from_str(f"at://{commit.repo}/{op.path}")
 
-        if op.action == 'create':
+        if op.action == "create":
             if not op.cid:
                 continue
 
-            create_info = {'uri': str(uri), 'cid': str(op.cid), 'author': commit.repo}
+            create_info = {
+                "uri": str(at_uri),
+                "cid": str(op.cid),
+                "author": commit.repo,
+            }
 
             record_raw_data = car.blocks.get(op.cid)
             if not record_raw_data:
@@ -39,13 +64,17 @@ def _get_ops_by_type(commit: models.ComAtprotoSyncSubscribeRepos.Commit) -> defa
             if record is None:  # unknown record (out of bsky lexicon)
                 continue
 
-            for record_type, record_nsid in _INTERESTED_RECORDS.items():
-                if uri.collection == record_nsid and models.is_record_type(record, record_type):
-                    operation_by_type[record_nsid]['created'].append({'record': record, **create_info})
+            for record_type, record_nsid in RELEVANT_RECORDS.items():
+                if at_uri.collection == record_nsid and models.is_record_type(
+                    record, record_type
+                ):
+                    operation_by_type[record_nsid]["created"].append(
+                        {"record": record, **create_info}
+                    )
                     break
 
-        if op.action == 'delete':
-            operation_by_type[uri.collection]['deleted'].append({'uri': str(uri)})
+        if op.action == "delete":
+            operation_by_type[at_uri.collection]["deleted"].append({"uri": str(at_uri)})
 
     return operation_by_type
 
@@ -57,11 +86,13 @@ def run(name, operations_callback, stream_stop_event=None):
         except FirehoseError as e:
             if logger.level == logging.DEBUG:
                 raise e
-            logger.error(f'Firehose error: {e}. Reconnecting to the firehose.')
+            logger.error(f"Firehose error: {e}. Reconnecting to the firehose.")
 
 
 def _run(name, operations_callback, stream_stop_event=None):
-    state = SubscriptionState.get_or_none(SubscriptionState.service == name)
+    state = FirehoseSubscriptionState.get_or_none(
+        FirehoseSubscriptionState.service == name
+    )
 
     params = None
     if state:
@@ -70,7 +101,7 @@ def _run(name, operations_callback, stream_stop_event=None):
     client = FirehoseSubscribeReposClient(params)
 
     if not state:
-        SubscriptionState.create(service=name, cursor=0)
+        FirehoseSubscriptionState.create(service=name, cursor=0)
 
     def on_message_handler(message: firehose_models.MessageFrame) -> None:
         # stop on next message if requested
@@ -84,9 +115,13 @@ def _run(name, operations_callback, stream_stop_event=None):
 
         # update stored state every ~1k events
         if commit.seq % 1000 == 0:  # lower value could lead to performance issues
-            logger.debug(f'Updated cursor for {name} to {commit.seq}')
-            client.update_params(models.ComAtprotoSyncSubscribeRepos.Params(cursor=commit.seq))
-            SubscriptionState.update(cursor=commit.seq).where(SubscriptionState.service == name).execute()
+            logger.debug(f"Updated cursor for {name} to {commit.seq}")
+            client.update_params(
+                models.ComAtprotoSyncSubscribeRepos.Params(cursor=commit.seq)
+            )
+            FirehoseSubscriptionState.update(cursor=commit.seq).where(
+                FirehoseSubscriptionState.service == name
+            ).execute()
 
         if not commit.blocks:
             return
